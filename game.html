@@ -1,0 +1,532 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LUCKY PLAY | 오늘 뭐 하지?</title>
+<style>
+:root {
+  --bg:#0d1020;--panel:#1b2038;--line:#ffffff1c;
+  --text:#f8f8ff;--muted:#aeb4d0;--pink:#ff5796;
+  --yellow:#ffdc72;--blue:#7a8cff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;color:var(--text);
+  font-family:system-ui,"Apple SD Gothic Neo",sans-serif;
+  background:radial-gradient(ellipse at 15% 0%,#473168,transparent 48%),
+  radial-gradient(ellipse at 95% 100%,#17476a,transparent 45%),var(--bg);
+  min-height:100vh
+}
+header{text-align:center;padding:35px 15px 20px}
+header small{color:var(--yellow);letter-spacing:4px;font-weight:800}
+h1{font-size:clamp(36px,7vw,65px);margin:7px}
+h1 span{color:var(--pink)}
+header p,.hint{color:var(--muted);font-size:14px}
+nav{
+  display:flex;flex-wrap:wrap;justify-content:center;
+  gap:10px;margin:15px auto 25px;padding:0 15px
+}
+button{font:inherit;cursor:pointer}
+.tab,.btn{
+  border:1px solid var(--line);border-radius:13px;
+  padding:12px 19px;color:white;background:#ffffff12
+}
+.tab.active,.primary{
+  background:linear-gradient(110deg,#ff4c91,#ff8662);
+  border:0;color:white;font-weight:800
+}
+main{max-width:1100px;margin:auto;padding:0 18px 60px}
+.page{display:none}.page.active{display:block}
+.panel{
+  background:#1b2038e8;border:1px solid var(--line);
+  border-radius:24px;padding:24px;box-shadow:0 15px 45px #0003
+}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}
+h2{margin:0 0 10px}
+input,select,textarea{
+  background:#10152a;color:white;border:1px solid #ffffff30;
+  padding:12px;border-radius:11px;font:inherit;width:100%
+}
+textarea{min-height:155px;resize:vertical;line-height:1.8}
+input:focus,textarea:focus{outline:2px solid var(--blue)}
+.row{display:flex;gap:9px;margin:15px 0}
+.row input{flex:1;min-width:0}
+.primary{padding:14px 23px;border-radius:13px}
+.primary:disabled{opacity:.5;cursor:wait}
+.wheel-box{position:relative;max-width:440px;margin:15px auto 25px}
+canvas{width:100%;display:block}
+.pointer{
+  position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  width:0;height:0;border-left:17px solid transparent;
+  border-right:17px solid transparent;border-top:31px solid white;
+  z-index:2
+}
+.wheel-panel{text-align:center}
+.list{display:grid;gap:8px;margin-top:15px}
+.list-item{
+  display:flex;align-items:center;gap:10px;padding:11px;
+  border:1px solid var(--line);border-radius:11px;background:#ffffff09
+}
+.list-item span{flex:1;overflow-wrap:anywhere}
+.list-item button{
+  border:0;background:transparent;color:#ff91ad;font-size:21px
+}
+.result{
+  background:#ffffff0b;border:1px solid #ffffff24;
+  padding:23px;border-radius:18px;text-align:center;
+  margin-top:20px;overflow-wrap:anywhere
+}
+.result strong{color:var(--yellow);font-size:clamp(23px,4vw,35px)}
+.history{margin-top:22px;border-top:1px solid var(--line);padding-top:15px}
+.history p{color:var(--muted);font-size:13px;line-height:1.9}
+.center{text-align:center}
+.full{width:100%}
+.ladder-wrap{overflow-x:auto;margin-top:20px}
+#ladderCanvas{width:100%;min-width:420px;background:#11172e;border-radius:15px}
+.badge{display:inline-block;color:var(--yellow);font-size:12px;font-weight:800}
+footer{text-align:center;color:var(--muted);padding:20px;font-size:12px}
+@media(max-width:750px){.grid{grid-template-columns:1fr}.panel{padding:17px}}
+</style>
+</head>
+<body>
+<header>
+  <small>YOUR DAILY RANDOM PICK</small>
+  <h1>LUCKY <span>PLAY</span></h1>
+  <p>결정하기 어려울 땐 운명에게 맡겨봐!</p>
+</header>
+
+<nav>
+  <button class="tab active" data-page="food">🍜 음식 룰렛</button>
+  <button class="tab" data-page="penalty">🎯 벌칙 룰렛</button>
+  <button class="tab" data-page="team">👥 팀 나누기</button>
+  <button class="tab" data-page="ladder">🪜 사다리타기</button>
+</nav>
+
+<main>
+<section id="food" class="page active">
+  <div class="grid">
+    <div class="panel wheel-panel">
+      <span class="badge">FOOD RANDOMIZER</span>
+      <h2>오늘 뭐 먹지?</h2>
+      <div class="wheel-box">
+        <div class="pointer"></div>
+        <canvas id="foodWheel" width="800" height="800"></canvas>
+      </div>
+      <button class="primary full" onclick="spin('food')">오늘의 메뉴 뽑기 ✦</button>
+      <div id="foodResult" class="result">룰렛을 돌려봐!</div>
+    </div>
+    <div class="panel">
+      <h2>메뉴 설정</h2>
+      <p class="hint">최소 2개, 최대 16개까지 추가 가능해.</p>
+      <div class="row">
+        <input id="foodInput" maxlength="24" placeholder="메뉴 입력">
+        <button class="primary" onclick="addOption('food')">추가</button>
+      </div>
+      <div id="foodList" class="list"></div>
+      <div class="history"><h2>최근 결과</h2><p id="foodHistory">기록 없음</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="penalty" class="page">
+  <div class="grid">
+    <div class="panel wheel-panel">
+      <span class="badge">PENALTY RANDOMIZER</span>
+      <h2>오늘의 벌칙은?</h2>
+      <div class="wheel-box">
+        <div class="pointer"></div>
+        <canvas id="penaltyWheel" width="800" height="800"></canvas>
+      </div>
+      <button class="primary full" onclick="spin('penalty')">벌칙 뽑기 ✦</button>
+      <div id="penaltyResult" class="result">과연 어떤 벌칙이?</div>
+    </div>
+    <div class="panel">
+      <h2>벌칙 설정</h2>
+      <p class="hint">재미있고 안전한 벌칙을 추가해 봐.</p>
+      <div class="row">
+        <input id="penaltyInput" maxlength="24" placeholder="벌칙 입력">
+        <button class="primary" onclick="addOption('penalty')">추가</button>
+      </div>
+      <div id="penaltyList" class="list"></div>
+      <div class="history"><h2>최근 결과</h2><p id="penaltyHistory">기록 없음</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="team" class="page">
+  <div class="panel">
+    <span class="badge">RANDOM TEAM MAKER</span>
+    <h2>랜덤 팀 나누기</h2>
+    <p class="hint">참가자를 한 줄에 한 명씩 입력해 줘.</p>
+    <div class="grid">
+      <div>
+        <textarea id="teamNames">민수
+지민
+수현
+유진
+서준
+하린</textarea>
+        <div class="row">
+          <select id="teamCount">
+            <option value="2">2팀</option>
+            <option value="3">3팀</option>
+            <option value="4">4팀</option>
+            <option value="5">5팀</option>
+            <option value="6">6팀</option>
+          </select>
+          <button class="primary" onclick="makeTeams()">팀 나누기!</button>
+        </div>
+      </div>
+      <div id="teamResult" class="result">팀을 나누면 결과가 나타나!</div>
+    </div>
+  </div>
+</section>
+
+<section id="ladder" class="page">
+  <div class="panel">
+    <span class="badge">LUCKY LADDER</span>
+    <h2>랜덤 사다리타기</h2>
+    <p class="hint">참가자와 결과를 각각 한 줄씩 입력해 줘. 인원수는 같아야 해.</p>
+    <div class="grid">
+      <div>
+        <h3>참가자</h3>
+        <textarea id="ladderNames">철수
+영희
+민수
+지민</textarea>
+      </div>
+      <div>
+        <h3>결과</h3>
+        <textarea id="ladderPrizes">당첨!
+꽝
+커피 사기
+다시 도전</textarea>
+      </div>
+    </div>
+    <div class="row">
+      <button class="primary" onclick="makeLadder()">사다리 만들기</button>
+      <button class="btn" onclick="runAllLadders()">전체 결과 보기</button>
+    </div>
+    <p class="hint">사다리를 만든 뒤 위쪽 참가자 이름을 클릭하면 경로가 표시돼.</p>
+    <div class="ladder-wrap">
+      <canvas id="ladderCanvas" width="1000" height="550"></canvas>
+    </div>
+    <div id="ladderResult" class="result">사다리를 만들어 봐!</div>
+  </div>
+</section>
+</main>
+
+<footer>LUCKY PLAY · Made with HTML, CSS & JavaScript</footer>
+
+<script>
+const palette=[
+  "#ff598a","#6d78ee","#ffb954","#31bfa8",
+  "#589ae9","#c275de","#ef8265","#82b95c",
+  "#e75caa","#548ac4","#dda345","#3cb5b8",
+  "#a27de0","#e86d7d","#89b36a","#db80b5"
+];
+const initial={
+  food:["삼겹살","마라탕","초밥","떡볶이","치킨","햄버거"],
+  penalty:["노래 한 소절","칭찬 3개","춤추기","커피 사기","애교 5초","면제!"]
+};
+let options={};
+let history={food:[],penalty:[]};
+let angles={food:0,penalty:0};
+let spinning={food:false,penalty:false};
+let ladderData=null;
+
+for(const type of ["food","penalty"]){
+  try{
+    const saved=JSON.parse(localStorage.getItem("lucky-"+type));
+    options[type]=Array.isArray(saved)&&saved.length>=2&&
+      saved.length<=16&&saved.every(v=>typeof v==="string"&&v.trim())
+      ?saved:[...initial[type]];
+  }catch(e){options[type]=[...initial[type]]}
+}
+
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab,.page").forEach(el=>el.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.page).classList.add("active");
+  });
+});
+
+function save(type){
+  try{localStorage.setItem("lucky-"+type,JSON.stringify(options[type]))}catch(e){}
+}
+function render(type){
+  const box=document.getElementById(type+"List");
+  box.replaceChildren();
+  options[type].forEach((name,i)=>{
+    const row=document.createElement("div");
+    row.className="list-item";
+    const dot=document.createElement("b");
+    dot.style.cssText=`background:${palette[i]};width:13px;height:13px;border-radius:50%`;
+    const label=document.createElement("span");
+    label.textContent=name;
+    const remove=document.createElement("button");
+    remove.textContent="×";
+    remove.disabled=spinning[type];
+    remove.onclick=()=>{
+      if(options[type].length<=2)return alert("최소 2개가 필요해!");
+      options[type].splice(i,1);
+      angles[type]=0;
+      save(type);render(type);
+    };
+    row.append(dot,label,remove);
+    box.append(row);
+  });
+  drawWheel(type);
+}
+function addOption(type){
+  if(spinning[type])return;
+  const input=document.getElementById(type+"Input");
+  const name=input.value.trim();
+  if(!name)return;
+  if(options[type].length>=16)return alert("최대 16개까지 가능해!");
+  if(options[type].includes(name))return alert("이미 있는 항목이야!");
+  options[type].push(name);
+  input.value="";
+  save(type);render(type);
+}
+function drawWheel(type){
+  const canvas=document.getElementById(type+"Wheel");
+  const ctx=canvas.getContext("2d");
+  const n=options[type].length;
+  const step=2*Math.PI/n;
+  const angle=angles[type];
+  const c=400,r=380;
+  ctx.clearRect(0,0,800,800);
+  options[type].forEach((name,i)=>{
+    const start=angle+i*step-Math.PI/2-step/2;
+    ctx.beginPath();
+    ctx.moveTo(c,c);
+    ctx.arc(c,c,r,start,start+step);
+    ctx.closePath();
+    ctx.fillStyle=palette[i%palette.length];
+    ctx.fill();
+    ctx.strokeStyle="#ffffff55";
+    ctx.lineWidth=4;
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(c,c);
+    ctx.rotate(start+step/2);
+    ctx.textAlign="right";
+    ctx.textBaseline="middle";
+    ctx.fillStyle="white";
+    ctx.font=`bold ${n>10?23:31}px sans-serif`;
+    ctx.fillText(name.length>10?name.slice(0,9)+"…":name,r-25,0,r-90);
+    ctx.restore();
+  });
+  ctx.beginPath();ctx.arc(c,c,r,0,2*Math.PI);
+  ctx.lineWidth=12;ctx.strokeStyle="white";ctx.stroke();
+  ctx.beginPath();ctx.arc(c,c,43,0,2*Math.PI);
+  ctx.fillStyle="white";ctx.fill();
+}
+function spin(type){
+  if(spinning[type])return;
+  spinning[type]=true;
+  render(type);
+  const buttons=document.querySelectorAll(`#${type} button`);
+  buttons.forEach(b=>b.disabled=true);
+  const n=options[type].length,step=2*Math.PI/n;
+  const winner=Math.floor(Math.random()*n);
+  const start=angles[type];
+  const current=((start%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  const target=(((-winner*step)%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  const delta=(target-current+2*Math.PI)%(2*Math.PI);
+  const end=start+2*Math.PI*6+delta;
+  const t0=performance.now(),duration=4400;
+  const result=document.getElementById(type+"Result");
+  result.textContent="두구두구... 돌리는 중!";
+  function frame(now){
+    const t=Math.min((now-t0)/duration,1);
+    const ease=1-Math.pow(1-t,5);
+    angles[type]=start+(end-start)*ease;
+    drawWheel(type);
+    if(t<1)requestAnimationFrame(frame);
+    else{
+      angles[type]=end%(2*Math.PI);
+      spinning[type]=false;
+      buttons.forEach(b=>b.disabled=false);
+      render(type);
+      result.replaceChildren();
+      const label=document.createElement("p");
+      label.textContent="오늘의 선택은";
+      const strong=document.createElement("strong");
+      strong.textContent=options[type][winner];
+      result.append(label,strong);
+      history[type].unshift(options[type][winner]);
+      history[type]=history[type].slice(0,6);
+      document.getElementById(type+"History").textContent=history[type].join(" → ");
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function lines(id){
+  return document.getElementById(id).value.split("\n")
+    .map(s=>s.trim()).filter(Boolean);
+}
+function shuffle(a){
+  const b=[...a];
+  for(let i=b.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [b[i],b[j]]=[b[j],b[i]];
+  }
+  return b;
+}
+function makeTeams(){
+  const names=lines("teamNames");
+  const count=Number(document.getElementById("teamCount").value);
+  if(names.length<count)return alert("참가자가 팀 수보다 적어!");
+  if(names.length>100)return alert("참가자는 최대 100명까지 입력해 줘.");
+  const teams=Array.from({length:count},()=>[]);
+  shuffle(names).forEach((name,i)=>teams[i%count].push(name));
+  const result=document.getElementById("teamResult");
+  result.replaceChildren();
+  teams.forEach((team,i)=>{
+    const p=document.createElement("p");
+    const title=document.createElement("strong");
+    title.textContent=`TEAM ${i+1}`;
+    p.append(title,document.createElement("br"),document.createTextNode(team.join(", ")));
+    result.append(p);
+  });
+}
+
+const ladderCanvas=document.getElementById("ladderCanvas");
+const lctx=ladderCanvas.getContext("2d");
+function ladderGeometry(n){
+  const left=85,right=915,top=95,bottom=450;
+  const gap=(right-left)/(n-1);
+  return {left,right,top,bottom,gap,x:i=>left+i*gap};
+}
+function makeLadder(){
+  const names=lines("ladderNames"),prizes=lines("ladderPrizes");
+  if(names.length!==prizes.length||names.length<2||names.length>10)
+    return alert("참가자와 결과를 각각 같은 개수(2~10개)로 입력해 줘!");
+  const n=names.length,levels=13;
+  const bars=[];
+  for(let level=0;level<levels;level++){
+    const used=new Set();
+    for(let i=0;i<n-1;i++){
+      if(!used.has(i)&&!used.has(i+1)&&Math.random()<.48){
+        bars.push({level,i});
+        used.add(i);used.add(i+1);
+      }
+    }
+  }
+  ladderData={names,prizes,bars,levels};
+  drawLadder();
+  document.getElementById("ladderResult").textContent=
+    "위쪽 이름을 클릭해서 경로를 확인해 봐!";
+}
+function drawLadder(path=null){
+  const d=ladderData;
+  if(!d)return;
+  const {names,prizes,bars,levels}=d;
+  const g=ladderGeometry(names.length);
+  const {top,bottom,x}=g;
+  lctx.clearRect(0,0,1000,550);
+  lctx.lineWidth=5;
+  lctx.strokeStyle="#7b87ac";
+  for(let i=0;i<names.length;i++){
+    lctx.beginPath();lctx.moveTo(x(i),top);
+    lctx.lineTo(x(i),bottom);lctx.stroke();
+  }
+  bars.forEach(({level,i})=>{
+    const y=top+(level+1)*(bottom-top)/(levels+1);
+    lctx.beginPath();lctx.moveTo(x(i),y);
+    lctx.lineTo(x(i+1),y);lctx.stroke();
+  });
+  lctx.textAlign="center";lctx.fillStyle="white";
+  lctx.font="bold 20px sans-serif";
+  names.forEach((name,i)=>{
+    lctx.fillText(name.length>7?name.slice(0,6)+"…":name,x(i),52,90);
+    lctx.fillText(prizes[i].length>7?prizes[i].slice(0,6)+"…":prizes[i],x(i),505,90);
+  });
+  if(path){
+    lctx.strokeStyle="#ffdc72";lctx.lineWidth=9;
+    lctx.lineCap="round";lctx.lineJoin="round";
+    lctx.beginPath();
+    path.forEach(([px,py],i)=>{
+      if(i===0)lctx.moveTo(px,py);
+      else lctx.lineTo(px,py);
+    });
+    lctx.stroke();
+  }
+}
+function getLadderPath(start){
+  const d=ladderData,g=ladderGeometry(d.names.length);
+  let col=start;
+  const points=[[g.x(col),g.top]];
+  for(let level=0;level<d.levels;level++){
+    const y=g.top+(level+1)*(g.bottom-g.top)/(d.levels+1);
+    points.push([g.x(col),y]);
+    const bar=d.bars.find(b=>b.level===level&&(b.i===col||b.i+1===col));
+    if(bar){
+      col=bar.i===col?col+1:col-1;
+      points.push([g.x(col),y]);
+    }
+  }
+  points.push([g.x(col),g.bottom]);
+  return {points,end:col};
+}
+let ladderAnimation=0;
+function revealLadder(start){
+  if(!ladderData)return;
+  cancelAnimationFrame(ladderAnimation);
+  const {points,end}=getLadderPath(start);
+  const result=document.getElementById("ladderResult");
+  result.textContent="경로를 따라가는 중...";
+  const t0=performance.now();
+  const duration=1300;
+  function frame(now){
+    const t=Math.min((now-t0)/duration,1);
+    const segment=t*(points.length-1);
+    const whole=Math.floor(segment);
+    const partial=segment-whole;
+    const path=points.slice(0,whole+1);
+    if(whole<points.length-1){
+      const a=points[whole],b=points[whole+1];
+      path.push([a[0]+(b[0]-a[0])*partial,a[1]+(b[1]-a[1])*partial]);
+    }
+    drawLadder(path);
+    if(t<1)ladderAnimation=requestAnimationFrame(frame);
+    else{
+      result.replaceChildren();
+      const strong=document.createElement("strong");
+      strong.textContent=ladderData.names[start]+" → "+ladderData.prizes[end];
+      result.append(strong);
+    }
+  }
+  ladderAnimation=requestAnimationFrame(frame);
+}
+ladderCanvas.addEventListener("click",e=>{
+  if(!ladderData)return;
+  const rect=ladderCanvas.getBoundingClientRect();
+  const clickX=(e.clientX-rect.left)*ladderCanvas.width/rect.width;
+  const g=ladderGeometry(ladderData.names.length);
+  const index=Math.round((clickX-g.left)/g.gap);
+  if(index>=0&&index<ladderData.names.length)revealLadder(index);
+});
+function runAllLadders(){
+  if(!ladderData)return alert("먼저 사다리를 만들어 줘!");
+  cancelAnimationFrame(ladderAnimation);
+  drawLadder();
+  const result=document.getElementById("ladderResult");
+  result.replaceChildren();
+  ladderData.names.forEach((name,i)=>{
+    const p=document.createElement("p");
+    p.textContent=name+" → "+ladderData.prizes[getLadderPath(i).end];
+    result.append(p);
+  });
+}
+["food","penalty"].forEach(render);
+makeLadder();
+</script>
+</body>
+</html>
